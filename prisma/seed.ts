@@ -1,6 +1,23 @@
 import { PrismaClient, PublishStatus } from '@prisma/client';
+import { randomBytes } from 'node:crypto';
+import { hash } from 'bcryptjs';
 
 const prisma = new PrismaClient();
+
+/**
+ * Generate a strong random password that satisfies the login schema
+ * (min 8 chars) and common password policies.
+ */
+function generatePassword(length = 24): string {
+  const alphabet =
+    'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%^&*-_=+?';
+  let password = '';
+  const bytes = randomBytes(length);
+  for (let i = 0; i < length; i++) {
+    password += alphabet[bytes[i] % alphabet.length];
+  }
+  return password;
+}
 
 /**
  * Seed script — only system configuration and taxonomy defaults.
@@ -58,10 +75,18 @@ async function main() {
     console.log('Seeded default navigation');
   }
 
-  // Bootstrap the super admin account (no password hash — the auth service
-  // permits a first-login fallback using the configured JWT secret; the admin
-  // must set a real password via the profile / change-password flow).
-  const adminEmail = process.env.ADMIN_EMAIL ?? 'admin@abdulmalik-musba.com';
+  // Bootstrap the super admin account with genuine login credentials.
+  //
+  // Recommended practice: the password is hashed with bcrypt and stored only as
+  // a hash — never in plaintext. Credentials are configurable via ADMIN_EMAIL /
+  // ADMIN_PASSWORD so a real deployment can provision its own secret without
+  // editing source, and a strong random password is generated as a safe default.
+  // The seed prints the generated credentials once; set ADMIN_EMAIL / ADMIN_PASSWORD
+  // explicitly (or rotate the password after first login) in production.
+  const adminEmail = (process.env.ADMIN_EMAIL ?? 'admin@abdulmalik-musba.com').toLowerCase().trim();
+  const generatedPassword = process.env.ADMIN_PASSWORD ?? generatePassword();
+  const passwordHash = await hash(generatedPassword, 12);
+
   const admin = await prisma.adminUser.findUnique({ where: { email: adminEmail } });
   if (!admin) {
     await prisma.adminUser.create({
@@ -69,9 +94,24 @@ async function main() {
         email: adminEmail,
         name: 'Admin',
         role: 'SUPER_ADMIN',
+        passwordHash,
       },
     });
-    console.log(`Seeded bootstrap admin (${adminEmail}) — set a password via the portal or change-password endpoint.`);
+    console.log(`Seeded super admin (${adminEmail}).`);
+    console.log(`  Password: ${process.env.ADMIN_PASSWORD ? '(set via ADMIN_PASSWORD)' : generatedPassword}`);
+    console.log('  Change it after first login via the change-password endpoint.');
+  } else {
+    // Upgrade path: previous bootstrap accounts had no hash and relied on the
+    // JWT-secret fallback. Ensure a real bcrypt hash is set.
+    if (!admin.passwordHash) {
+      await prisma.adminUser.update({
+        where: { id: admin.id },
+        data: { passwordHash },
+      });
+      console.log(`Set a genuine password hash for existing admin (${adminEmail}).`);
+      console.log(`  Password: ${process.env.ADMIN_PASSWORD ? '(set via ADMIN_PASSWORD)' : generatedPassword}`);
+      console.log('  Change it after first login via the change-password endpoint.');
+    }
   }
 
   console.log('Seed complete.');
