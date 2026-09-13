@@ -1,0 +1,22 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --ink: 11 14 20;
+    --paper: 247 247 248;
+    --accent: 37 99 235;
+    --muted: 138 143 152;
+  }
+
+  html {
+    color-scheme: light;
+  }
+
+  body {
+    background-color: rgb(var(--paper));
+    color: rgb(var(--ink));
+    font-family: ui-sans-serif, system-ui, sans-serif;
+  }
+}

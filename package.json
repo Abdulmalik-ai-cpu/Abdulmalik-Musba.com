@@ -1,0 +1,46 @@
+{
+  "name": "abdulmalik-portfolio",
+  "version": "1.0.0",
+  "private": true,
+  "description": "General personal portfolio website — public web, super admin portal, and API in a typed monorepo.",
+  "packageManager": "pnpm@10.0.0",
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@nestjs/core",
+      "@prisma/client",
+      "@prisma/engines",
+      "@scarf/scarf",
+      "argon2",
+      "esbuild",
+      "prisma"
+    ]
+  },
+  "engines": {
+    "node": ">=20.11.0",
+    "pnpm": ">=9.0.0"
+  },
+  "scripts": {
+    "build": "turbo run build",
+    "build:web": "turbo run build --filter=@portfolio/web",
+    "build:admin": "turbo run build --filter=@portfolio/admin",
+    "build:api": "turbo run build --filter=@portfolio/api",
+    "dev": "turbo run dev",
+    "dev:web": "turbo run dev --filter=@portfolio/web",
+    "dev:admin": "turbo run dev --filter=@portfolio/admin",
+    "dev:api": "turbo run dev --filter=@portfolio/api",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "test:e2e": "pnpm --filter @portfolio/e2e test",
+    "format": "prettier --write \"**/*.{ts,tsx,md,json,css}\"",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:deploy": "prisma migrate deploy",
+    "db:seed": "prisma db seed",
+    "db:studio": "prisma studio"
+  },
+  "devDependencies": {
+    "prettier": "^3.4.2",
+    "turbo": "^2.3.3"
+  }
+}
