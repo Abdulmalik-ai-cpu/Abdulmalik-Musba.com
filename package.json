@@ -4,6 +4,9 @@
   "private": true,
   "description": "General personal portfolio website — public web, super admin portal, and API in a typed monorepo.",
   "packageManager": "pnpm@10.0.0",
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  },
   "pnpm": {
     "onlyBuiltDependencies": [
       "@nestjs/core",
@@ -36,12 +39,14 @@
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
-    "db:seed": "prisma db seed",
+    "db:seed": "tsx prisma/seed.ts",
     "db:studio": "prisma studio"
   },
   "devDependencies": {
     "bcryptjs": "^2.4.3",
+    "dotenv": "^16.4.5",
     "prettier": "^3.4.2",
+    "tsx": "^4.19.2",
     "turbo": "^2.3.3"
   }
 }

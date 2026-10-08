@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import { PrismaClient, PublishStatus } from '@prisma/client';
 import { randomBytes } from 'node:crypto';
 import { hash } from 'bcryptjs';
