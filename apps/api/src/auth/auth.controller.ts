@@ -29,6 +29,14 @@ export class AuthController {
     return this.authService.me(user.adminUserId);
   }
 
+  @Post('logout')
+  @HttpCode(200)
+  async logout(@Req() req: AuthenticatedRequest) {
+    const header = req.headers.authorization;
+    const token = header?.startsWith('Bearer ') ? header.slice('Bearer '.length).trim() : '';
+    return this.authService.logout(token);
+  }
+
   @Post('change-password')
   @UseGuards(AuthGuard)
   @ApiBearerAuth()

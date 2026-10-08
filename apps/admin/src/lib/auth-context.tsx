@@ -37,6 +37,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const logout = useCallback(() => {
+    // Invalidate the session server-side (best-effort), then clear locally.
+    void api.auth.logout().catch(() => undefined);
     setAuthToken(null);
     setUser(null);
   }, []);

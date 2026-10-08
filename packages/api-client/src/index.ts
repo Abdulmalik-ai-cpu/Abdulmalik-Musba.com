@@ -70,7 +70,10 @@ export class ApiClient {
 
   constructor(options: ApiClientOptions) {
     this.baseUrl = options.baseUrl.replace(/\/$/, '');
-    this.fetchImpl = options.fetchImpl ?? fetch;
+    // Wrap so the native fetch is never invoked as a member (e.g. `this.fetchImpl(...)`),
+    // which browsers reject with an "Illegal invocation" TypeError when `this` is not Window.
+    const fetchImpl = options.fetchImpl ?? fetch;
+    this.fetchImpl = ((...args: Parameters<typeof fetch>) => fetchImpl(...args)) as typeof fetch;
     this.tokenProvider = options.getToken;
   }
 
@@ -212,6 +215,7 @@ export class ApiClient {
     login: (email: string, password: string): Promise<{ token: string; user: AuthUser }> =>
       this.post('/auth/login', { email, password }),
     me: () => this.get<AuthUser>('/auth/me'),
+    logout: () => this.post<{ ok: boolean }>('/auth/logout'),
     changePassword: (currentPassword: string, newPassword: string) =>
       this.post<{ ok: boolean }>('/auth/change-password', { currentPassword, newPassword }),
   };

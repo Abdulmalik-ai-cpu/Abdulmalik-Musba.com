@@ -109,6 +109,27 @@ export class AuthService {
     return user;
   }
 
+  /**
+   * Revoke the session identified by the bearer token. Called on logout so the
+   * opaque token is invalidated server-side rather than only discarded by the client.
+   */
+  async logout(token: string) {
+    const session = await this.prisma.authSession.findUnique({ where: { token } });
+    if (session && !session.revokedAt) {
+      await this.prisma.authSession.update({
+        where: { id: session.id },
+        data: { revokedAt: new Date() },
+      });
+      await this.audit.log({
+        adminUserId: session.adminUserId,
+        action: 'LOGOUT',
+        entity: 'AdminUser',
+        entityId: session.adminUserId,
+      });
+    }
+    return { ok: true };
+  }
+
   async changePassword(adminUserId: string, currentPassword: string, newPassword: string) {
     const user = await this.prisma.adminUser.findUnique({ where: { id: adminUserId } });
     if (!user) throw new UnauthorizedException('Account not found');
