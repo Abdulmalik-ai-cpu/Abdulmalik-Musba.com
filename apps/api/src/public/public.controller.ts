@@ -1,17 +1,18 @@
-import { Body, Controller, Get, HttpCode, Param, Post, Query } from '@nestjs/common';
-import { SkipThrottle } from '@nestjs/throttler';
+import { Body, Controller, Get, HttpCode, Ip, Param, Post, Query, Req } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { ApiTags } from '@nestjs/swagger';
 import { PublicService } from './public.service';
 import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
 import { contactSubmissionSchema } from '@portfolio/validation';
-import { PrismaService } from '../prisma/prisma.service';
+import { ContactService } from '../contact/contact.service';
+import type { AuthenticatedRequest } from '../common/decorators/current-user.decorator';
 
 @ApiTags('public')
 @Controller('public')
 export class PublicController {
   constructor(
     private readonly publicService: PublicService,
-    private readonly prisma: PrismaService,
+    private readonly contactService: ContactService,
   ) {}
 
   @Get('profile')
@@ -121,28 +122,39 @@ export class PublicController {
 
   /**
    * Contact form. Includes a honeypot field (website) — bots that fill it
-   * are silently dropped. Real submissions are persisted for the owner.
+   * are silently dropped. Real submissions are persisted for the owner and
+   * trigger a best-effort notification (§43, §143.36).
    */
   @Post('contact')
   @HttpCode(201)
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
   async contact(
+    @Req() req: AuthenticatedRequest,
+    @Ip() ip: string,
     @Body(new ZodValidationPipe(contactSubmissionSchema))
-    body: { name: string; email: string; subject?: string | null; message: string; website?: string },
+    body: {
+      name: string;
+      email: string;
+      organization?: string | null;
+      subject?: string | null;
+      message: string;
+      website?: string;
+    },
   ) {
     if (body.website && body.website.length > 0) {
-      return { id: 'honeypot', received: false };
+      // Respond exactly like a real submission so a bot cannot tell it was
+      // filtered, but persist nothing and send no notification (§140.53).
+      return { id: 'accepted', received: true };
     }
 
-    const submission = await this.prisma.contactSubmission.create({
-      data: {
-        name: body.name,
-        email: body.email,
-        subject: body.subject ?? null,
-        message: body.message,
-      },
+    return this.contactService.submit({
+      name: body.name,
+      email: body.email,
+      organization: body.organization ?? null,
+      subject: body.subject ?? null,
+      message: body.message,
+      ip: ip ?? null,
+      userAgent: req.headers['user-agent'] ?? null,
     });
-
-    // Email notification handled by an optional Resend integration later.
-    return { id: submission.id, received: true };
   }
 }

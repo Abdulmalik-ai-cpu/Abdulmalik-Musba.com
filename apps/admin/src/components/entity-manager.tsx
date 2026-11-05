@@ -89,6 +89,13 @@ const ENTITY_FIELD_DEFS: Record<string, EntityFieldDef[]> = {
     { name: 'url', label: 'URL' },
   ],
   services: [{ name: 'title', label: 'Title', required: true }, { name: 'description', label: 'Description', type: 'textarea' }],
+  'social-links': [
+    { name: 'platform', label: 'Platform', required: true },
+    { name: 'label', label: 'Label', required: true },
+    { name: 'url', label: 'URL', required: true },
+    { name: 'icon', label: 'Icon name' },
+    { name: 'sortOrder', label: 'Order', type: 'number' },
+  ],
   timeline: [
     { name: 'title', label: 'Title', required: true },
     { name: 'date', label: 'Date', type: 'date', required: true },
@@ -110,6 +117,7 @@ const ENTITY_LABELS: Record<string, string> = {
   awards: 'Awards',
   talks: 'Talks',
   services: 'Services',
+  'social-links': 'Social links',
   timeline: 'Timeline',
 };
 
@@ -117,6 +125,11 @@ interface Row {
   id: string;
   [key: string]: unknown;
 }
+
+/** Entity slug → api-client admin namespace key, when they differ. */
+const API_KEY: Record<string, string> = {
+  'social-links': 'socialLinks',
+};
 
 export function EntityManager({ entity }: { entity: string }) {
   const [rows, setRows] = useState<Row[]>([]);
@@ -127,17 +140,18 @@ export function EntityManager({ entity }: { entity: string }) {
 
   const fields = useMemo(() => ENTITY_FIELD_DEFS[entity] ?? [], [entity]);
   const label = ENTITY_LABELS[entity] ?? entity;
+  const apiKey = API_KEY[entity] ?? entity;
 
   const refresh = useCallback(() => {
     setLoadError(null);
-    const manager = api.admin[entity as keyof typeof api.admin] as unknown as {
+    const manager = api.admin[apiKey as keyof typeof api.admin] as unknown as {
       list: () => Promise<Row[]>;
     };
     manager
       .list()
       .then((data) => setRows(data))
       .catch(() => setLoadError(`Could not load ${label.toLowerCase()}. Is the API running?`));
-  }, [entity, label]);
+  }, [apiKey, label]);
 
   useEffect(() => {
     refresh();
@@ -168,7 +182,7 @@ export function EntityManager({ entity }: { entity: string }) {
   }
 
   async function save() {
-    const manager = api.admin[entity as keyof typeof api.admin] as unknown as {
+    const manager = api.admin[apiKey as keyof typeof api.admin] as unknown as {
       create: (payload: unknown) => Promise<Row>;
       update: (id: string, payload: unknown) => Promise<Row>;
     };
@@ -184,7 +198,7 @@ export function EntityManager({ entity }: { entity: string }) {
   }
 
   async function remove(row: Row) {
-    const manager = api.admin[entity as keyof typeof api.admin] as unknown as {
+    const manager = api.admin[apiKey as keyof typeof api.admin] as unknown as {
       remove: (id: string) => Promise<{ ok: boolean }>;
     };
     if (!window.confirm(`Delete this ${label.toLowerCase()}?`)) return;
@@ -197,7 +211,7 @@ export function EntityManager({ entity }: { entity: string }) {
   }
 
   function titleOf(row: Row): string {
-    return String(row.title ?? row.name ?? row.institution ?? row.degree ?? row.id);
+    return String(row.title ?? row.name ?? row.institution ?? row.degree ?? row.label ?? row.platform ?? row.id);
   }
 
   function summaryOf(row: Row): string {
@@ -207,10 +221,11 @@ export function EntityManager({ entity }: { entity: string }) {
         row.category ??
         row.company ??
         row.organization ??
-        row.locacation ??
+        row.location ??
         row.venue ??
         row.issuer ??
         row.event ??
+        row.url ??
         '',
     );
   }

@@ -222,30 +222,56 @@ export class PublicService {
     return this.prisma.seoConfig.findUnique({ where: { id: 'default' } });
   }
 
+  /**
+   * Public search (§17, §57). Only PUBLIC + PUBLISHED content is eligible;
+   * drafts, private, and admin records can never appear here (§52, §53).
+   */
   async search(query: string) {
     const q = query.trim();
     if (!q) return { results: [], total: 0 };
+    const contains = { contains: q, mode: 'insensitive' as const };
 
-    const [projects, articles, publications, research] = await Promise.all([
+    const [projects, articles, publications, research, education, experience, talks] = await Promise.all([
       this.prisma.project.findMany({
-        where: { visibility: Visibility.PUBLIC, OR: [{ title: { contains: q } }, { summary: { contains: q } }] },
+        where: { visibility: Visibility.PUBLIC, OR: [{ title: contains }, { summary: contains }] },
         take: 10,
         select: { id: true, title: true, summary: true },
       }),
       this.prisma.article.findMany({
-        where: this.publishedArticleWhere,
+        where: {
+          ...this.publishedArticleWhere,
+          OR: [{ title: contains }, { excerpt: contains }],
+        },
         take: 10,
         select: { id: true, title: true, slug: true, excerpt: true },
       }),
       this.prisma.publication.findMany({
-        where: { visibility: Visibility.PUBLIC, OR: [{ title: { contains: q } }, { venue: { contains: q } }] },
+        where: { visibility: Visibility.PUBLIC, OR: [{ title: contains }, { venue: contains }] },
         take: 10,
         select: { id: true, title: true, year: true },
       }),
       this.prisma.research.findMany({
-        where: { visibility: Visibility.PUBLIC, OR: [{ title: { contains: q } }, { summary: { contains: q } }] },
+        where: { visibility: Visibility.PUBLIC, OR: [{ title: contains }, { summary: contains }] },
         take: 10,
         select: { id: true, title: true, summary: true },
+      }),
+      this.prisma.education.findMany({
+        where: {
+          visibility: Visibility.PUBLIC,
+          OR: [{ institution: contains }, { degree: contains }, { fieldOfStudy: contains }],
+        },
+        take: 10,
+        select: { id: true, institution: true, degree: true },
+      }),
+      this.prisma.experience.findMany({
+        where: { visibility: Visibility.PUBLIC, OR: [{ title: contains }, { organization: contains }, { company: contains }] },
+        take: 10,
+        select: { id: true, title: true, organization: true },
+      }),
+      this.prisma.talk.findMany({
+        where: { visibility: Visibility.PUBLIC, OR: [{ title: contains }, { event: contains }] },
+        take: 10,
+        select: { id: true, title: true, event: true },
       }),
     ]);
 
@@ -254,6 +280,9 @@ export class PublicService {
       ...articles.map((a) => ({ type: 'article' as const, id: a.id, title: a.title, slug: a.slug, excerpt: a.excerpt, url: `/articles/${a.slug}` })),
       ...publications.map((p) => ({ type: 'publication' as const, id: p.id, title: p.title, excerpt: p.year ? String(p.year) : null, url: `/publications#${p.id}` })),
       ...research.map((r) => ({ type: 'research' as const, id: r.id, title: r.title, excerpt: r.summary, url: `/research#${r.id}` })),
+      ...education.map((e) => ({ type: 'education' as const, id: e.id, title: `${e.degree} — ${e.institution}`, excerpt: null, url: `/education#${e.id}` })),
+      ...experience.map((e) => ({ type: 'experience' as const, id: e.id, title: e.title, excerpt: e.organization, url: `/experience#${e.id}` })),
+      ...talks.map((t) => ({ type: 'talk' as const, id: t.id, title: t.title, excerpt: t.event, url: `/talks#${t.id}` })),
     ];
 
     return { results, total: results.length };

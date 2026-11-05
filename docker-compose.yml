@@ -1,0 +1,88 @@
+# Local development infrastructure (§140.40–143).
+# Reproducible services so a fresh checkout can run the whole platform.
+#
+#   docker compose up -d
+#   pnpm db:deploy && pnpm db:seed && pnpm dev
+#
+# Production must not depend on any of this (§140.43); it uses managed
+# PostgreSQL, S3-compatible storage, and a real email provider.
+
+services:
+  postgres:
+    image: postgres:16
+    container_name: portfolio-pg
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: portfolio
+      POSTGRES_PASSWORD: portfolio_dev_password
+      POSTGRES_DB: portfolio_dev
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U portfolio -d portfolio_dev"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: portfolio-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # S3-compatible object storage for testing the S3 storage adapter (§140.41).
+  minio:
+    image: minio/minio:latest
+    container_name: portfolio-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minio_dev_access
+      MINIO_ROOT_PASSWORD: minio_dev_secret
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Creates the buckets once MinIO is up, then exits.
+  minio-init:
+    image: minio/mc:latest
+    container_name: portfolio-minio-init
+    depends_on:
+      minio:
+        condition: service_started
+    entrypoint: >
+      /bin/sh -c "
+      until mc alias set local http://minio:9000 minio_dev_access minio_dev_secret; do sleep 2; done;
+      mc mb --ignore-existing local/portfolio-public;
+      mc mb --ignore-existing local/portfolio-private;
+      mc anonymous set download local/portfolio-public;
+      echo 'MinIO buckets ready.';
+      "
+
+  # Local email capture. Never sends to real recipients (§140.42).
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: portfolio-mailpit
+    restart: unless-stopped
+    ports:
+      - "1025:1025"   # SMTP
+      - "8025:8025"   # Web UI
+
+volumes:
+  postgres-data:
+  minio-data:

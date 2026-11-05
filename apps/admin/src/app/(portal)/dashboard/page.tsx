@@ -38,11 +38,15 @@ export default function DashboardPage() {
   const tiles: Array<{ label: string; value?: number; href: string }> = [
     { label: 'Education', value: stats?.educationCount, href: '/content/education' },
     { label: 'Experience', value: stats?.experienceCount, href: '/content/experience' },
+    { label: 'Research', value: stats?.researchCount, href: '/content/research' },
     { label: 'Projects', value: stats?.projectCount, href: '/content/projects' },
     { label: 'Publications', value: stats?.publicationCount, href: '/content/publications' },
     { label: 'Articles', value: stats?.articleCount, href: '/content/articles' },
     { label: 'Published', value: stats?.publishedArticleCount, href: '/content/articles' },
+    { label: 'Scheduled', value: stats?.scheduledArticleCount, href: '/content/articles' },
+    { label: 'Drafts', value: stats?.draftArticleCount, href: '/content/articles' },
     { label: 'Skills', value: stats?.skillCount, href: '/content/skills' },
+    { label: 'Media', value: stats?.mediaCount, href: '/content/media' },
     { label: 'New messages', value: stats?.newContactCount, href: '/content/contact' },
   ];
 

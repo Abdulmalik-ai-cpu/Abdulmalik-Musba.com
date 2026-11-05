@@ -1,9 +1,22 @@
 import Link from 'next/link';
+import { api } from '@/lib/api';
 import { siteConfig } from '@/lib/site-config';
+import type { SocialLink } from '@portfolio/types';
 
-export function SiteFooter() {
+/** Social links are owner-supplied content, never hardcoded (§80, §81). */
+async function getSocialLinks(): Promise<SocialLink[]> {
+  try {
+    return await api.getPublic.socialLinks();
+  } catch {
+    return [];
+  }
+}
+
+export async function SiteFooter() {
   const config = siteConfig();
   const year = new Date().getFullYear();
+  const socialLinks = await getSocialLinks();
+
   return (
     <footer className="border-t border-ink/10 bg-paper">
       <div className="mx-auto flex w-full max-w-6xl flex-col items-center justify-between gap-4 px-6 py-10 text-center md:flex-row md:px-10 md:text-left">
@@ -17,14 +30,17 @@ export function SiteFooter() {
           <Link href="/contact" className="text-sm text-ink/60 hover:text-ink">
             Contact
           </Link>
-          <a
-            href="https://github.com/Abdulmalik-ai-cpu"
-            target="_blank"
-            rel="noreferrer"
-            className="text-sm text-ink/60 hover:text-ink"
-          >
-            GitHub
-          </a>
+          {socialLinks.map((link) => (
+            <a
+              key={link.id}
+              href={link.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-sm text-ink/60 hover:text-ink"
+            >
+              {link.label}
+            </a>
+          ))}
         </nav>
       </div>
     </footer>

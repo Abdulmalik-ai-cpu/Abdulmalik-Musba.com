@@ -1,7 +1,9 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
-import { PublishStatus, Prisma, Visibility } from '@prisma/client';
+import { StorageService } from '../storage/storage.service';
+import { UploadValidator } from '../media/upload-validator';
+import { PublishStatus, Prisma } from '@prisma/client';
 
 type AdminContext = { adminUserId: string; ip?: string; userAgent?: string };
 
@@ -15,6 +17,8 @@ export class AdminService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
+    private readonly storage: StorageService,
+    private readonly uploadValidator: UploadValidator,
   ) {}
 
   private async trackAudit(
@@ -49,9 +53,12 @@ export class AdminService {
       publicationCount,
       articleCount,
       publishedArticleCount,
+      scheduledArticleCount,
+      draftArticleCount,
       skillCount,
       newContactCount,
       mediaCount,
+      researchCount,
     ] = await Promise.all([
       this.prisma.education.count(),
       this.prisma.experience.count(),
@@ -59,9 +66,12 @@ export class AdminService {
       this.prisma.publication.count(),
       this.prisma.article.count(),
       this.prisma.article.count({ where: { status: 'PUBLISHED' } }),
+      this.prisma.article.count({ where: { status: 'SCHEDULED' } }),
+      this.prisma.article.count({ where: { status: 'DRAFT' } }),
       this.prisma.skill.count(),
       this.prisma.contactSubmission.count({ where: { status: 'NEW' } }),
       this.prisma.media.count(),
+      this.prisma.research.count(),
     ]);
 
     return {
@@ -71,9 +81,12 @@ export class AdminService {
       publicationCount,
       articleCount,
       publishedArticleCount,
+      scheduledArticleCount,
+      draftArticleCount,
       skillCount,
       newContactCount,
       mediaCount,
+      researchCount,
     };
   }
 
@@ -152,15 +165,19 @@ export class AdminService {
 
   async updateEntity(ctx: AdminContext, entity: string, id: string, payload: Record<string, unknown>) {
     const model = this.resolveModel(entity);
+    const before = await model.findUnique({ where: { id } });
+    if (!before) throw new NotFoundException(`${entity} record not found`);
     const record = await model.update({ where: { id }, data: payload as Prisma.InputJsonObject });
-    await this.trackAudit(ctx, 'UPDATE', entity, id, undefined, record);
+    await this.trackAudit(ctx, 'UPDATE', entity, id, before, record);
     return record;
   }
 
   async deleteEntity(ctx: AdminContext, entity: string, id: string) {
     const model = this.resolveModel(entity);
+    const before = await model.findUnique({ where: { id } });
+    if (!before) throw new NotFoundException(`${entity} record not found`);
     await model.delete({ where: { id } });
-    await this.trackAudit(ctx, 'DELETE', entity, id);
+    await this.trackAudit(ctx, 'DELETE', entity, id, before, undefined);
     return { ok: true };
   }
 
@@ -181,10 +198,13 @@ export class AdminService {
       timeline: this.prisma.timelineRecord,
       contact: this.prisma.contactSubmission,
       media: this.prisma.media,
+      'social-links': this.prisma.socialLink,
+      'nav-items': this.prisma.navItem,
     } as const;
     const delegate = delegates[entity as keyof typeof delegates];
     if (!delegate) throw new NotFoundException(`Unknown entity: ${entity}`);
     return delegate as unknown as {
+      findUnique: (args: { where: { id: string } }) => Promise<unknown>;
       update: (args: { where: { id: string }; data: Prisma.InputJsonObject }) => Promise<unknown>;
       delete: (args: { where: { id: string } }) => Promise<unknown>;
     };
@@ -318,43 +338,101 @@ export class AdminService {
     return this.prisma.media.findMany({ orderBy: [{ createdAt: 'desc' }] });
   }
 
-  async uploadMedia(ctx: AdminContext, file: Express.Multer.File) {
-    if (!file) throw new NotFoundException('No file provided');
-    // Local upload; a Cloudflare R2 adapter can be wired without changing this method.
-    const publicUrl = `/media/${file.filename}`;
+  /**
+   * Validates the upload, stores it through the storage adapter, and records
+   * the metadata. Private/admin-only files get a signed URL, never a permanent
+   * public path (§37, §143.22).
+   */
+  async uploadMedia(
+    ctx: AdminContext,
+    file: Express.Multer.File,
+    options: { storageClass?: 'PUBLIC' | 'PRIVATE' | 'ADMIN_ONLY'; altText?: string; caption?: string } = {},
+  ) {
+    const validated = this.uploadValidator.validate(file);
+    const storageClass = options.storageClass ?? 'PUBLIC';
+    const key = this.storage.buildKey(storageClass.toLowerCase(), validated.safeFilename);
+
+    await this.storage.put(key, file.buffer, validated.mimeType, storageClass);
+    const url = await this.storage.url(key, storageClass);
+
     const media = await this.prisma.media.create({
       data: {
-        filename: file.filename,
+        filename: validated.safeFilename,
         originalName: file.originalname,
-        mimeType: file.mimetype,
-        size: file.size,
-        url: publicUrl,
-        type: file.mimetype.startsWith('image/') ? 'IMAGE' : 'DOCUMENT',
+        storageKey: key,
+        mimeType: validated.mimeType,
+        size: validated.size,
+        url,
+        storageClass,
+        altText: options.altText ?? null,
+        caption: options.caption ?? null,
+        type: validated.mimeType.startsWith('image/')
+          ? 'IMAGE'
+          : validated.mimeType.startsWith('video/')
+            ? 'VIDEO'
+            : validated.mimeType.startsWith('audio/')
+              ? 'AUDIO'
+              : 'DOCUMENT',
       },
     });
+
     await this.trackAudit(ctx, 'UPLOAD', 'Media', media.id, undefined, {
       originalName: file.originalname,
-      size: file.size,
+      size: validated.size,
+      storageClass,
     });
     return media;
   }
 
   async updateMedia(ctx: AdminContext, id: string, payload: Record<string, unknown>) {
+    const before = await this.prisma.media.findUnique({ where: { id } });
+    if (!before) throw new NotFoundException('Media not found');
     const media = await this.prisma.media.update({ where: { id }, data: payload });
-    await this.trackAudit(ctx, 'UPDATE', 'Media', id, undefined, payload);
+    await this.trackAudit(ctx, 'UPDATE', 'Media', id, before, media);
     return media;
+  }
+
+  /** Removes the stored object and its metadata record (§87, §140.73). */
+  async deleteMedia(ctx: AdminContext, id: string) {
+    const media = await this.prisma.media.findUnique({ where: { id } });
+    if (!media) throw new NotFoundException('Media not found');
+
+    if (media.storageKey) {
+      await this.storage.delete(media.storageKey);
+    }
+    await this.prisma.media.delete({ where: { id } });
+    await this.trackAudit(ctx, 'DELETE', 'Media', id, media, undefined);
+    return { ok: true };
+  }
+
+  /** Issues a short-lived URL for a private asset after authorization. */
+  async getMediaUrl(id: string) {
+    const media = await this.prisma.media.findUnique({ where: { id } });
+    if (!media) throw new NotFoundException('Media not found');
+    if (!media.storageKey) return { url: media.url };
+    const url = await this.storage.url(media.storageKey, media.storageClass);
+    return { url };
   }
 
   // -------------------------------------------------------------------------
   // Contact, Navigation, Settings, SEO
   // -------------------------------------------------------------------------
 
-  async updateContactStatus(ctx: AdminContext, id: string, status: 'NEW' | 'READ' | 'REPLIED' | 'ARCHIVED') {
+  async updateContactStatus(
+    ctx: AdminContext,
+    id: string,
+    status: 'NEW' | 'READ' | 'IN_PROGRESS' | 'RESPONDED' | 'ARCHIVED' | 'SPAM',
+  ) {
+    const before = await this.prisma.contactSubmission.findUnique({ where: { id } });
+    if (!before) throw new NotFoundException('Contact submission not found');
     const submission = await this.prisma.contactSubmission.update({
       where: { id },
-      data: { status, readAt: status === 'READ' || status === 'REPLIED' ? new Date() : null },
+      data: {
+        status,
+        readAt: status === 'NEW' ? null : (before.readAt ?? new Date()),
+      },
     });
-    await this.trackAudit(ctx, 'UPDATE', 'ContactSubmission', id, undefined, { status });
+    await this.trackAudit(ctx, 'UPDATE', 'ContactSubmission', id, before, { status });
     return submission;
   }
 

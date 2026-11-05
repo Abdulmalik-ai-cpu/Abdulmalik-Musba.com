@@ -7,9 +7,8 @@ import type { Profile, Project, ArticleSummary, Publication } from '@portfolio/t
 
 const DEFAULT_PROFILE = {
   fullName: 'Abdulmalik Musba',
-  professionalTitle: 'Researcher & Builder',
-  shortIntro:
-    'I build things that outlive hype — rigorous research, practical software, and writing that survives the scrum of the feed.',
+  professionalTitle: '',
+  shortIntro: '',
 };
 
 async function getHomeData(): Promise<{

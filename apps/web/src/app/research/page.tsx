@@ -1,5 +1,4 @@
 import type { Metadata } from 'next';
-import Link from 'next/link';
 import { api } from '@/lib/api';
 import { formatPeriod } from '@/lib/format';
 import type { Research } from '@portfolio/types';

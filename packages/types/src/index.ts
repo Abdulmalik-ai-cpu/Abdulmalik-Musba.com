@@ -7,7 +7,7 @@ export type PublishStatus = 'DRAFT' | 'PUBLISHED' | 'SCHEDULED' | 'ARCHIVED';
 export type PublicationType = 'JOURNAL' | 'CONFERENCE' | 'THESIS' | 'REPORT' | 'BOOK' | 'CHAPTER' | 'OTHER';
 export type MediaType = 'IMAGE' | 'DOCUMENT' | 'VIDEO' | 'AUDIO' | 'OTHER';
 export type StorageClass = 'PUBLIC' | 'PRIVATE' | 'ADMIN_ONLY';
-export type ContactStatus = 'NEW' | 'READ' | 'REPLIED' | 'ARCHIVED';
+export type ContactStatus = 'NEW' | 'READ' | 'IN_PROGRESS' | 'RESPONDED' | 'ARCHIVED' | 'SPAM';
 export type AuditAction =
   | 'CREATE'
   | 'UPDATE'
@@ -191,6 +191,7 @@ export interface Media {
   id: string;
   filename: string;
   originalName: string;
+  storageKey: string | null;
   mimeType: string;
   size: number;
   url: string | null;
@@ -205,9 +206,12 @@ export interface ContactSubmission {
   id: string;
   name: string;
   email: string;
+  organization: string | null;
   subject: string | null;
   message: string;
   status: ContactStatus;
+  notifiedAt: string | null;
+  notificationError: string | null;
   createdAt: string;
   readAt: string | null;
 }
@@ -219,7 +223,7 @@ export interface SocialLink {
   url: string;
   icon: string | null;
   visibility: Visibility;
-  order: number;
+  sortOrder: number;
 }
 
 export interface NavItem {
@@ -276,9 +280,38 @@ export interface DashboardStats {
   publicationCount: number;
   articleCount: number;
   publishedArticleCount: number;
+  scheduledArticleCount: number;
+  draftArticleCount: number;
   skillCount: number;
   newContactCount: number;
   mediaCount: number;
+  researchCount: number;
+}
+
+export interface SearchResult {
+  type:
+    | 'project'
+    | 'article'
+    | 'publication'
+    | 'research'
+    | 'education'
+    | 'experience'
+    | 'talk';
+  id: string;
+  title: string;
+  slug?: string | null;
+  excerpt?: string | null;
+  url: string;
+}
+
+export interface SearchResults {
+  results: SearchResult[];
+  total: number;
+}
+
+export interface SystemStatus {
+  storage: { provider: string; configured: boolean };
+  email: { provider: string; configured: boolean };
 }
 
 export interface AuditRecordSummary {

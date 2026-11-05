@@ -76,6 +76,9 @@ async function main() {
     console.log('Seeded default navigation');
   }
 
+  // Social links are deliberately NOT seeded: §80 and §81 forbid inventing the
+  // owner's profiles. They are added through the Super Admin portal.
+
   // Bootstrap the super admin account with genuine login credentials.
   //
   // Recommended practice: the password is hashed with bcrypt and stored only as
@@ -88,8 +91,15 @@ async function main() {
   const generatedPassword = process.env.ADMIN_PASSWORD ?? generatePassword();
   const passwordHash = await hash(generatedPassword, 12);
 
-  const admin = await prisma.adminUser.findUnique({ where: { email: adminEmail } });
-  if (!admin) {
+  // §6 — exactly one Super Admin, ever. The lookup is by role, not by email, so
+  // changing ADMIN_EMAIL reconciles the existing account instead of creating a
+  // second one.
+  const existingSuperAdmin = await prisma.adminUser.findFirst({
+    where: { role: 'SUPER_ADMIN' },
+    orderBy: { createdAt: 'asc' },
+  });
+
+  if (!existingSuperAdmin) {
     await prisma.adminUser.create({
       data: {
         email: adminEmail,
@@ -101,18 +111,31 @@ async function main() {
     console.log(`Seeded super admin (${adminEmail}).`);
     console.log(`  Password: ${process.env.ADMIN_PASSWORD ? '(set via ADMIN_PASSWORD)' : generatedPassword}`);
     console.log('  Change it after first login via the change-password endpoint.');
-  } else {
+  } else if (existingSuperAdmin.email !== adminEmail) {
+    // Reconcile the single account's email rather than creating a duplicate.
+    await prisma.adminUser.update({
+      where: { id: existingSuperAdmin.id },
+      data: { email: adminEmail },
+    });
+    console.log(`Updated the super admin email to ${adminEmail} (a single Super Admin is enforced).`);
+  } else if (!existingSuperAdmin.passwordHash) {
     // Upgrade path: previous bootstrap accounts had no hash and relied on the
     // JWT-secret fallback. Ensure a real bcrypt hash is set.
-    if (!admin.passwordHash) {
-      await prisma.adminUser.update({
-        where: { id: admin.id },
-        data: { passwordHash },
-      });
-      console.log(`Set a genuine password hash for existing admin (${adminEmail}).`);
-      console.log(`  Password: ${process.env.ADMIN_PASSWORD ? '(set via ADMIN_PASSWORD)' : generatedPassword}`);
-      console.log('  Change it after first login via the change-password endpoint.');
-    }
+    await prisma.adminUser.update({
+      where: { id: existingSuperAdmin.id },
+      data: { passwordHash },
+    });
+    console.log(`Set a genuine password hash for existing admin (${adminEmail}).`);
+    console.log(`  Password: ${process.env.ADMIN_PASSWORD ? '(set via ADMIN_PASSWORD)' : generatedPassword}`);
+    console.log('  Change it after first login via the change-password endpoint.');
+  }
+
+  // Fail loudly rather than silently leaving an ambiguous authority model.
+  const superAdminCount = await prisma.adminUser.count({ where: { role: 'SUPER_ADMIN' } });
+  if (superAdminCount > 1) {
+    throw new Error(
+      `Invariant violated: ${superAdminCount} SUPER_ADMIN accounts exist. Exactly one is permitted (§6).`,
+    );
   }
 
   console.log('Seed complete.');

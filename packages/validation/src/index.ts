@@ -236,13 +236,18 @@ export const mediaUpdateSchema = z.object({
 export const contactSubmissionSchema = z.object({
   name: z.string().min(1).max(200),
   email: emailSchema,
+  organization: z.string().max(200).nullable().optional(),
   subject: z.string().max(300).nullable().optional(),
   message: z.string().min(1).max(5000),
-  website: z.string().max(10).optional().default(''), // honeypot
+  // Honeypot: a real browser never fills this hidden field. The cap is only a
+  // sanity bound — it must be large enough that a bot's URL passes validation
+  // and is then silently dropped, instead of returning a 400 that tells the
+  // bot it was detected (§140.53).
+  website: z.string().max(500).optional().default(''),
 });
 
 export const contactStatusSchema = z.object({
-  status: z.enum(['NEW', 'READ', 'REPLIED', 'ARCHIVED']),
+  status: z.enum(['NEW', 'READ', 'IN_PROGRESS', 'RESPONDED', 'ARCHIVED', 'SPAM']),
 });
 
 // ---------------------------------------------------------------------------
@@ -255,6 +260,15 @@ export const navItemSchema = z.object({
   order: z.number().int().optional().default(0),
   visible: z.boolean().optional().default(true),
   isExternal: z.boolean().optional().default(false),
+});
+
+export const socialLinkSchema = z.object({
+  platform: z.string().min(1).max(100),
+  label: z.string().min(1).max(200),
+  url: z.string().url(),
+  icon: z.string().max(100).nullable().optional(),
+  visibility: visibilitySchema.optional().default('PUBLIC'),
+  sortOrder: z.number().int().optional().default(0),
 });
 
 export const siteSettingSchema = z.object({

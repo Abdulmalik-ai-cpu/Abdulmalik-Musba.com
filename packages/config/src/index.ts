@@ -19,8 +19,16 @@ export interface ApiConfig {
   storageBucket?: string;
   storageAccessKey?: string;
   storageSecretKey?: string;
-  emailProvider?: 'resend' | 'console' | 'none';
+  storagePublicBaseUrl?: string;
+  storageLocalRoot: string;
+  storageMaxUploadBytes: number;
+  emailProvider?: 'resend' | 'smtp' | 'console' | 'none';
   resendApiKey?: string;
+  smtpHost?: string;
+  smtpPort?: number;
+  smtpUser?: string;
+  smtpPassword?: string;
+  smtpSecure: boolean;
   contactFromEmail?: string;
   contactToEmail?: string;
   analyticsProvider?: 'plausible' | 'none';
@@ -69,8 +77,16 @@ export function loadApiConfig(env: NodeJS.ProcessEnv = process.env): ApiConfig {
     storageBucket: env.STORAGE_BUCKET,
     storageAccessKey: env.STORAGE_ACCESS_KEY,
     storageSecretKey: env.STORAGE_SECRET_KEY,
+    storagePublicBaseUrl: env.STORAGE_PUBLIC_BASE_URL,
+    storageLocalRoot: requireEnv('STORAGE_LOCAL_ROOT', 'uploads'),
+    storageMaxUploadBytes: intEnv('STORAGE_MAX_UPLOAD_BYTES', 25 * 1024 * 1024),
     emailProvider: (env.EMAIL_PROVIDER ?? 'console') as ApiConfig['emailProvider'],
     resendApiKey: env.RESEND_API_KEY,
+    smtpHost: env.SMTP_HOST,
+    smtpPort: env.SMTP_PORT ? intEnv('SMTP_PORT', 587) : undefined,
+    smtpUser: env.SMTP_USER,
+    smtpPassword: env.SMTP_PASSWORD,
+    smtpSecure: (env.SMTP_SECURE ?? 'false') === 'true',
     contactFromEmail: env.CONTACT_FROM_EMAIL,
     contactToEmail: env.CONTACT_TO_EMAIL,
     analyticsProvider: (env.ANALYTICS_PROVIDER ?? 'none') as ApiConfig['analyticsProvider'],

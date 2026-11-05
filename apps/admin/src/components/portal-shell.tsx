@@ -19,6 +19,7 @@ import {
   Smartphone,
   ImageIcon,
   Inbox,
+  Link as LinkIcon,
   Settings,
   ScrollText,
   LogOut,
@@ -40,6 +41,7 @@ const NAV_SECTIONS = [
       { href: '/content/achievements', label: 'Achievements', icon: Medal },
       { href: '/content/talks', label: 'Talks', icon: Mic },
       { href: '/content/timeline', label: 'Timeline', icon: CalendarClock },
+      { href: '/content/social-links', label: 'Social links', icon: LinkIcon },
     ],
   },
   {

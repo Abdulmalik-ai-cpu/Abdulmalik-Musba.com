@@ -2,7 +2,6 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { api } from '@/lib/api';
-import { Card } from '@portfolio/ui';
 import type { Project } from '@portfolio/types';
 
 export const metadata: Metadata = ({} satisfies Metadata);

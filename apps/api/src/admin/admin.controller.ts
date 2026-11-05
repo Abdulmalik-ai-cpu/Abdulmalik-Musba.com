@@ -37,7 +37,7 @@ import {
   articlePublishSchema,
   siteSettingSchema,
   seoConfigSchema,
-  navItemSchema,
+  socialLinkSchema,
   contactStatusSchema,
   mediaUpdateSchema,
 } from '@portfolio/validation';
@@ -514,8 +514,23 @@ export class AdminController {
     @Req() req: AuthenticatedRequest,
     @CurrentUser() user: RequestUser,
     @UploadedFile() file: Express.Multer.File,
+    @Body() body: { storageClass?: 'PUBLIC' | 'PRIVATE' | 'ADMIN_ONLY'; altText?: string; caption?: string },
   ) {
-    return this.adminService.uploadMedia(this.ctx(req, user), file);
+    return this.adminService.uploadMedia(this.ctx(req, user), file, {
+      storageClass: body?.storageClass,
+      altText: body?.altText,
+      caption: body?.caption,
+    });
+  }
+
+  @Get('media')
+  listMedia() {
+    return this.adminService.listMedia();
+  }
+
+  @Get('media/:id/url')
+  getMediaUrl(@Param('id') id: string) {
+    return this.adminService.getMediaUrl(id);
   }
 
   @Patch('media/:id')
@@ -526,6 +541,42 @@ export class AdminController {
     @Body(new ZodValidationPipe(mediaUpdateSchema)) body: Record<string, unknown>,
   ) {
     return this.adminService.updateMedia(this.ctx(req, user), id, body);
+  }
+
+  @Delete('media/:id')
+  deleteMedia(@Req() req: AuthenticatedRequest, @CurrentUser() user: RequestUser, @Param('id') id: string) {
+    return this.adminService.deleteMedia(this.ctx(req, user), id);
+  }
+
+  // Social links --------------------------------------------------------------------------------------------|
+
+  @Get('social-links')
+  listSocialLinks() {
+    return this.adminService.listCategories('social-links');
+  }
+
+  @Post('social-links')
+  createSocialLink(
+    @Req() req: AuthenticatedRequest,
+    @CurrentUser() user: RequestUser,
+    @Body(new ZodValidationPipe(socialLinkSchema)) body: Record<string, unknown>,
+  ) {
+    return this.adminService.createEntity(this.ctx(req, user), 'social-links', body);
+  }
+
+  @Patch('social-links/:id')
+  updateSocialLink(
+    @Req() req: AuthenticatedRequest,
+    @CurrentUser() user: RequestUser,
+    @Param('id') id: string,
+    @Body(new ZodValidationPipe(socialLinkSchema.partial())) body: Record<string, unknown>,
+  ) {
+    return this.adminService.updateEntity(this.ctx(req, user), 'social-links', id, body);
+  }
+
+  @Delete('social-links/:id')
+  deleteSocialLink(@Req() req: AuthenticatedRequest, @CurrentUser() user: RequestUser, @Param('id') id: string) {
+    return this.adminService.deleteEntity(this.ctx(req, user), 'social-links', id);
   }
 
   // Contact ----------------------------------------------------------------------------------------------|
@@ -540,7 +591,8 @@ export class AdminController {
     @Req() req: AuthenticatedRequest,
     @CurrentUser() user: RequestUser,
     @Param('id') id: string,
-    @Body(new ZodValidationPipe(contactStatusSchema)) body: { status: 'NEW' | 'READ' | 'REPLIED' | 'ARCHIVED' },
+    @Body(new ZodValidationPipe(contactStatusSchema))
+    body: { status: 'NEW' | 'READ' | 'IN_PROGRESS' | 'RESPONDED' | 'ARCHIVED' | 'SPAM' },
   ) {
     return this.adminService.updateContactStatus(this.ctx(req, user), id, body.status);
   }

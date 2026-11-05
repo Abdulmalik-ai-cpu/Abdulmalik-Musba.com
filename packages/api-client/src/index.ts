@@ -16,11 +16,13 @@ import type {
   Project,
   Publication,
   Research,
+  SearchResults,
   SeoConfig,
   Service,
   SiteSetting,
   Skill,
   SocialLink,
+  SystemStatus,
   Talk,
   TimelineRecord,
   Visibility,
@@ -200,6 +202,7 @@ export class ApiClient {
     submit: (payload: {
       name: string;
       email: string;
+      organization?: string | null;
       subject?: string | null;
       message: string;
       website?: string;
@@ -333,8 +336,16 @@ export class ApiClient {
       list: () => this.get<Media[]>('/admin/media'),
       upload: (formData: FormData) =>
         this.request<Media>('POST', '/admin/media/upload', undefined, undefined, { formData }),
+      url: (id: string) => this.get<{ url: string | null }>(`/admin/media/${id}/url`),
       update: (id: string, payload: unknown) => this.patch<Media>(`/admin/media/${id}`, payload),
       remove: (id: string) => this.delete<{ ok: boolean }>(`/admin/media/${id}`),
+    },
+
+    socialLinks: {
+      list: () => this.get<SocialLink[]>('/admin/social-links'),
+      create: (payload: unknown) => this.post<SocialLink>('/admin/social-links', payload),
+      update: (id: string, payload: unknown) => this.patch<SocialLink>(`/admin/social-links/${id}`, payload),
+      remove: (id: string) => this.delete<{ ok: boolean }>(`/admin/social-links/${id}`),
     },
 
     contact: {
@@ -345,7 +356,16 @@ export class ApiClient {
 
     navigation: {
       get: () => this.get<NavItem[]>('/admin/navigation'),
-      update: (items: NavItem[]) => this.put<NavItem[]>('/admin/navigation', { items }),
+      update: (
+        items: Array<{
+          id?: string;
+          label: string;
+          href: string;
+          order?: number;
+          visible?: boolean;
+          isExternal?: boolean;
+        }>,
+      ) => this.put<NavItem[]>('/admin/navigation', { items }),
     },
 
     settings: {
@@ -365,6 +385,7 @@ export class ApiClient {
   };
 
   health = () => this.get<Record<string, unknown>>('/health');
+  status = () => this.get<SystemStatus>('/health/status');
 }
 
 export interface AuthUser {
@@ -372,18 +393,6 @@ export interface AuthUser {
   email: string;
   name: string | null;
   role: string;
-}
-
-export interface SearchResults {
-  results: Array<{
-    type: 'project' | 'article' | 'publication' | 'research';
-    id: string;
-    title: string;
-    slug?: string | null;
-    excerpt?: string | null;
-    url: string;
-  }>;
-  total: number;
 }
 
 export function createApiClient(options: ApiClientOptions): ApiClient {

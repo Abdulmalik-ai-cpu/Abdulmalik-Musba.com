@@ -326,8 +326,12 @@ model Article {
   profile     Profile?      @relation(fields: [profileId], references: [id])
   profileId   String?
   revisions   Revision[]
+  media       Media[]
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
+
+  @@index([status, scheduledFor])
+  @@index([visibility, status])
 }
 
 model Revision {
@@ -365,6 +369,8 @@ model Media {
   id          String      @id @default(cuid())
   filename    String
   originalName String
+  storageKey  String?     @unique
+  checksum    String?
   mimeType    String
   size        Int
   url         String?
@@ -376,8 +382,12 @@ model Media {
   height      Int?
   project     Project?    @relation(fields: [projectId], references: [id])
   projectId   String?
+  article     Article?    @relation(fields: [articleId], references: [id], onDelete: SetNull)
+  articleId   String?
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
+
+  @@index([storageClass])
 }
 
 // ---------------------------------------------------------------------------
@@ -400,22 +410,29 @@ model ContactInfo {
 enum ContactStatus {
   NEW
   READ
-  REPLIED
+  IN_PROGRESS
+  RESPONDED
   ARCHIVED
+  SPAM
 }
 
 model ContactSubmission {
   id        String        @id @default(cuid())
   name      String
   email     String
+  organization String?
   subject   String?
   message   String
   status    ContactStatus @default(NEW)
+  notifiedAt DateTime?
+  notificationError String?
   ip        String?
   userAgent String?
   createdAt DateTime      @default(now())
   updatedAt DateTime      @updatedAt
   readAt    DateTime?
+
+  @@index([status])
 }
 
 model SocialLink {

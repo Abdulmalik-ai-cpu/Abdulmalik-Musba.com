@@ -8,6 +8,11 @@ import { PublicModule } from './public/public.module';
 import { AdminModule } from './admin/admin.module';
 import { HealthModule } from './health/health.module';
 import { AuditModule } from './audit/audit.module';
+import { StorageModule } from './storage/storage.module';
+import { EmailModule } from './email/email.module';
+import { MediaModule } from './media/media.module';
+import { ContactModule } from './contact/contact.module';
+import { SchedulerModule } from './scheduler/scheduler.module';
 
 @Module({
   imports: [
@@ -20,10 +25,15 @@ import { AuditModule } from './audit/audit.module';
     ]),
     PrismaModule,
     AuditModule,
+    StorageModule,
+    EmailModule,
+    ContactModule,
     AuthModule,
     PublicModule,
     AdminModule,
+    MediaModule,
     HealthModule,
+    SchedulerModule,
   ],
   providers: [
     {

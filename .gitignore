@@ -37,3 +37,5 @@ prisma/*.db
 
 # Local uploads
 uploads/
+# TypeScript incremental build info
+*.tsbuildinfo
