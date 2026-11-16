@@ -63,6 +63,13 @@ are hard gates, so keep `pnpm lint` green locally before pushing.
   not work: path-to-regexp reads it as wildcard + literal `key`, so real keys
   404 and keys ending in `key` crash. Use `@Get('public/*')` and read
   `req.params[0]`. Regression test: `apps/api/src/media/media.controller.spec.ts`.
+- **`prisma.config.ts` must sit at the repository root.** Prisma 6 only
+  auto-loads a config file from the CWD; the documented `prisma/prisma.config.ts`
+  path is not discovered and Prisma silently falls back to `package.json#prisma`.
+  And once a config file *is* detected, Prisma stops auto-loading `.env`, so the
+  root config imports `dotenv/config` itself. Moving the file into `prisma/` (or
+  dropping the `dotenv/config` import) breaks `pnpm db:deploy` with
+  `Environment variable not found: DATABASE_URL`.
 - **`packages/validation` resolves from `dist`, not `src`, for the API runtime
   and `nest build`.** After editing validators, run
   `pnpm --filter @portfolio/validation build` or restart the API, or the running
