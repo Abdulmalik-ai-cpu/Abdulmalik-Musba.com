@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
+import { describeApiError } from '@portfolio/utils';
 import type { AuditRecordSummary, Paginated } from '@portfolio/types';
 
 export default function AuditPage() {
@@ -18,7 +19,7 @@ export default function AuditPage() {
         setLogs(data.items);
         setTotal(data.total);
       })
-      .catch(() => setError('Could not load audit logs. Is the API running?'));
+      .catch((error) => setError(describeApiError(error)));
   }, [page, pageSize]);
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize));

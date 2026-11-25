@@ -2,10 +2,10 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '@/lib/api';
+import { describeApiError, slugify } from '@portfolio/utils';
 import { Button, Card, Input, Label, Select, Textarea } from '@portfolio/ui';
 import { Plus, Save, Trash2, Send, Undo2, CalendarClock } from 'lucide-react';
 import type { Article, ArticleSummary, Paginated } from '@portfolio/types';
-import { slugify } from '@portfolio/utils';
 
 interface FormState {
   title: string;
@@ -55,7 +55,7 @@ export function ArticleManager() {
     api.admin.articles
       .list({ status: statusFilter || undefined, search: search || undefined, page: 1, pageSize: 50 })
       .then((data: Paginated<ArticleSummary>) => setItems(data.items))
-      .catch(() => setError('Could not load articles. Is the API running?'));
+      .catch((error) => setError(describeApiError(error)));
   }, [statusFilter, search]);
 
   useEffect(() => {
@@ -86,8 +86,8 @@ export function ArticleManager() {
         scheduledFor: article.scheduledFor ? article.scheduledFor.slice(0, 16) : '',
       });
       setDisplay('form');
-    } catch {
-      setError('Could not open that article.');
+    } catch (error) {
+      setError(describeApiError(error));
     }
   }
 
@@ -121,8 +121,12 @@ export function ArticleManager() {
       else await api.admin.articles.create(payload());
       setDisplay('list');
       refresh();
-    } catch {
-      setError('Save failed. Check required fields (title, slug, content).');
+    } catch (error) {
+      setError(
+        describeApiError(error, {
+          badRequest: 'Save failed. Check the required fields (title, slug, content).',
+        }),
+      );
     } finally {
       setBusy(false);
     }
@@ -133,8 +137,8 @@ export function ArticleManager() {
     try {
       await api.admin.articles.publish(id, { action });
       refresh();
-    } catch {
-      setError('Publish action failed.');
+    } catch (error) {
+      setError(describeApiError(error));
     }
   }
 
@@ -143,8 +147,8 @@ export function ArticleManager() {
     try {
       await api.admin.articles.remove(id);
       refresh();
-    } catch {
-      setError('Delete failed.');
+    } catch (error) {
+      setError(describeApiError(error));
     }
   }
 

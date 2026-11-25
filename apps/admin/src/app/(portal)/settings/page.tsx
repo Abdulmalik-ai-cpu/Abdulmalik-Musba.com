@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
+import { describeApiError } from '@portfolio/utils';
 import { Button, Card, Input, Label, Textarea } from '@portfolio/ui';
 import { NavigationManager } from '@/components/navigation-manager';
 import { SeoManager } from '@/components/seo-manager';
@@ -55,7 +56,14 @@ function GeneralSettings() {
     api.admin.settings
       .get()
       .then((data) => setForm(data as Settings))
-      .catch(() => setError('Could not load settings. Is the API running?'));
+      .catch((error) =>
+        setError(
+          describeApiError(error, {
+            notFound:
+              'Site settings have not been created on the server yet. The API is reachable; this needs a server-side fix, not a retry.',
+          }),
+        ),
+      );
   }, []);
 
   function update<K extends keyof Settings>(key: K, value: Settings[K]) {
@@ -71,8 +79,8 @@ function GeneralSettings() {
       const updated = await api.admin.settings.update(form);
       setForm(updated as Settings);
       setMessage('Settings saved.');
-    } catch {
-      setError('Save failed.');
+    } catch (error) {
+      setError(describeApiError(error));
     } finally {
       setSaving(false);
     }
