@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '@/lib/api';
+import { describeApiError } from '@portfolio/utils';
 import { Card, Select } from '@portfolio/ui';
 import { Mail, Trash2, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import type { ContactStatus, ContactSubmission } from '@portfolio/types';
@@ -32,7 +33,7 @@ export function InboxManager() {
         );
         setItems(sorted);
       })
-      .catch(() => setError('Could not load messages. Is the API running?'));
+      .catch((error) => setError(describeApiError(error)));
   }, []);
 
   useEffect(() => {
@@ -43,8 +44,8 @@ export function InboxManager() {
     try {
       await api.admin.contact.update(id, { status });
       refresh();
-    } catch {
-      setError('Could not update the message.');
+    } catch (error) {
+      setError(describeApiError(error));
     }
   }
 
@@ -53,8 +54,8 @@ export function InboxManager() {
     try {
       await api.admin.contact.remove(id);
       refresh();
-    } catch {
-      setError('Delete failed.');
+    } catch (error) {
+      setError(describeApiError(error));
     }
   }
 

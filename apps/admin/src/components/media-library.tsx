@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '@/lib/api';
+import { describeApiError } from '@portfolio/utils';
 import { Button, Card, Input, Label, Select } from '@portfolio/ui';
 import { Upload, Trash2, Copy, Lock, Globe, ShieldAlert } from 'lucide-react';
 import type { Media } from '@portfolio/types';
@@ -32,7 +33,7 @@ export function MediaLibrary() {
     api.admin.media
       .list()
       .then(setItems)
-      .catch(() => setError('Could not load media. Is the API running?'));
+      .catch((error) => setError(describeApiError(error)));
   }, []);
 
   useEffect(() => {
@@ -55,8 +56,13 @@ export function MediaLibrary() {
       setAltText('');
       if (fileRef.current) fileRef.current.value = '';
       refresh();
-    } catch {
-      setError('Upload rejected. Check the file type and size.');
+    } catch (error) {
+      setError(
+        describeApiError(error, {
+          badRequest: 'The upload was rejected. Check the file type and size.',
+          notFound: 'The media library is not available on the server yet.',
+        }),
+      );
     } finally {
       setUploading(false);
     }
@@ -64,14 +70,28 @@ export function MediaLibrary() {
 
   async function copyUrl(media: Media) {
     // Private assets get a fresh signed URL rather than the stored one.
+    let generated: { url: string | null };
     try {
-      const { url } = await api.admin.media.url(media.id);
-      if (!url) return;
-      await navigator.clipboard.writeText(url);
-      setNotice('Link copied to clipboard.');
-    } catch {
-      setError('Could not generate a link.');
+      generated = await api.admin.media.url(media.id);
+    } catch (error) {
+      setNotice(null);
+      setError(describeApiError(error));
+      return;
     }
+    if (!generated.url) return;
+
+    // Clipboard permission is a browser concern, not an API failure.
+    try {
+      await navigator.clipboard.writeText(generated.url);
+    } catch {
+      setNotice(null);
+      setError(
+        'Link created, but the browser did not allow copying it to the clipboard. Grant clipboard access for this site and try again.',
+      );
+      return;
+    }
+    setError(null);
+    setNotice('Link copied to clipboard.');
   }
 
   async function remove(media: Media) {
@@ -79,8 +99,8 @@ export function MediaLibrary() {
     try {
       await api.admin.media.remove(media.id);
       refresh();
-    } catch {
-      setError('Delete failed.');
+    } catch (error) {
+      setError(describeApiError(error));
     }
   }
 

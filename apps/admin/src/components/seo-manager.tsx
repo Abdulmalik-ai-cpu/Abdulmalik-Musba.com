@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
+import { describeApiError } from '@portfolio/utils';
 import { Button, Card, Input, Label, Textarea } from '@portfolio/ui';
 import { Save } from 'lucide-react';
 import type { SeoConfig } from '@portfolio/types';
@@ -36,9 +37,14 @@ export function SeoManager() {
           canonicalBaseUrl: seo.canonicalBaseUrl ?? '',
         }),
       )
-      .catch(() => {
+      .catch((error) => {
         setForm(EMPTY);
-        setError('Could not load SEO configuration. Starting from a blank form.');
+        setError(
+          describeApiError(error, {
+            notFound:
+              'SEO configuration has not been created on the server yet. Starting from a blank form.',
+          }),
+        );
       });
   }, []);
 
@@ -63,8 +69,8 @@ export function SeoManager() {
         canonicalBaseUrl: form.canonicalBaseUrl || null,
       });
       setMessage('SEO configuration saved.');
-    } catch {
-      setError('Save failed.');
+    } catch (error) {
+      setError(describeApiError(error));
     } finally {
       setSaving(false);
     }

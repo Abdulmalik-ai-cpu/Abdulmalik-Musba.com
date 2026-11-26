@@ -1,135 +1,23 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '@/lib/api';
-import { Button, Card, Input, Label, Textarea } from '@portfolio/ui';
+import { Button, Card, Input, Label, Select, Textarea } from '@portfolio/ui';
+import {
+  blankEntityForm,
+  createSubmissionGuard,
+  describeApiError,
+  ENTITY_API_KEY,
+  ENTITY_FIELD_DEFS,
+  ENTITY_LABELS,
+  normalizeEntityPayload,
+} from '@portfolio/utils';
 import { Plus, Save, Trash2, Eye, EyeOff, Pencil } from 'lucide-react';
-
-export interface EntityFieldDef {
-  name: string;
-  label: string;
-  type?: 'text' | 'textarea' | 'number' | 'boolean' | 'date';
-  required?: boolean;
-  placeholder?: string;
-}
-
-const ENTITY_FIELD_DEFS: Record<string, EntityFieldDef[]> = {
-  education: [
-    { name: 'institution', label: 'Institution', required: true },
-    { name: 'degree', label: 'Degree', required: true },
-    { name: 'fieldOfStudy', label: 'Field of study' },
-    { name: 'startDate', label: 'Start date', type: 'date', required: true },
-    { name: 'endDate', label: 'End date', type: 'date' },
-    { name: 'description', label: 'Description', type: 'textarea' },
-  ],
-  experience: [
-    { name: 'title', label: 'Title', required: true },
-    { name: 'company', label: 'Company' },
-    { name: 'organization', label: 'Organization' },
-    { name: 'location', label: 'Location' },
-    { name: 'startDate', label: 'Start date', type: 'date', required: true },
-    { name: 'endDate', label: 'End date', type: 'date' },
-    { name: 'description', label: 'Description', type: 'textarea' },
-  ],
-  research: [
-    { name: 'title', label: 'Title', required: true },
-    { name: 'category', label: 'Category' },
-    { name: 'summary', label: 'Summary', type: 'textarea', required: true },
-    { name: 'status', label: 'Status' },
-    { name: 'startDate', label: 'Start date', type: 'date' },
-    { name: 'endDate', label: 'End date', type: 'date' },
-  ],
-  projects: [
-    { name: 'title', label: 'Title', required: true },
-    { name: 'summary', label: 'Summary', type: 'textarea', required: true },
-    { name: 'status', label: 'Status' },
-    { name: 'repositoryUrl', label: 'Repository URL' },
-    { name: 'liveUrl', label: 'Live URL' },
-    { name: 'imageUrl', label: 'Image URL' },
-    { name: 'featured', label: 'Featured', type: 'boolean' },
-  ],
-  publications: [
-    { name: 'title', label: 'Title', required: true },
-    { name: 'type', label: 'Type' },
-    { name: 'venue', label: 'Venue' },
-    { name: 'year', label: 'Year', type: 'number' },
-    { name: 'doi', label: 'DOI' },
-    { name: 'url', label: 'URL' },
-    { name: 'citation', label: 'Citation', type: 'textarea' },
-  ],
-  skills: [
-    { name: 'name', label: 'Name', required: true },
-    { name: 'category', label: 'Category' },
-    { name: 'proficiency', label: 'Proficiency (0-100)', type: 'number' },
-  ],
-  certifications: [
-    { name: 'title', label: 'Title', required: true },
-    { name: 'issuer', label: 'Issuer', required: true },
-    { name: 'dateObtained', label: 'Date obtained', type: 'date' },
-    { name: 'credentialUrl', label: 'Credential URL' },
-    { name: 'credentialId', label: 'Credential ID' },
-  ],
-  achievements: [
-    { name: 'title', label: 'Title', required: true },
-    { name: 'description', label: 'Description', type: 'textarea' },
-    { name: 'date', label: 'Date', type: 'date' },
-    { name: 'category', label: 'Category' },
-  ],
-  awards: [
-    { name: 'title', label: 'Title', required: true },
-    { name: 'issuer', label: 'Issuer' },
-    { name: 'description', label: 'Description', type: 'textarea' },
-    { name: 'date', label: 'Date', type: 'date' },
-  ],
-  talks: [
-    { name: 'title', label: 'Title', required: true },
-    { name: 'event', label: 'Event' },
-    { name: 'date', label: 'Date', type: 'date' },
-    { name: 'location', label: 'Location' },
-    { name: 'url', label: 'URL' },
-  ],
-  services: [{ name: 'title', label: 'Title', required: true }, { name: 'description', label: 'Description', type: 'textarea' }],
-  'social-links': [
-    { name: 'platform', label: 'Platform', required: true },
-    { name: 'label', label: 'Label', required: true },
-    { name: 'url', label: 'URL', required: true },
-    { name: 'icon', label: 'Icon name' },
-    { name: 'sortOrder', label: 'Order', type: 'number' },
-  ],
-  timeline: [
-    { name: 'title', label: 'Title', required: true },
-    { name: 'date', label: 'Date', type: 'date', required: true },
-    { name: 'category', label: 'Category' },
-    { name: 'description', label: 'Description', type: 'textarea' },
-  ],
-};
-
-const ENTITY_LABELS: Record<string, string> = {
-  education: 'Education',
-  experience: 'Experience',
-  research: 'Research',
-  projects: 'Projects',
-  publications: 'Publications',
-  skills: 'Skills',
-  technologies: 'Technologies',
-  certifications: 'Certifications',
-  achievements: 'Achievements',
-  awards: 'Awards',
-  talks: 'Talks',
-  services: 'Services',
-  'social-links': 'Social links',
-  timeline: 'Timeline',
-};
 
 interface Row {
   id: string;
   [key: string]: unknown;
 }
-
-/** Entity slug → api-client admin namespace key, when they differ. */
-const API_KEY: Record<string, string> = {
-  'social-links': 'socialLinks',
-};
 
 export function EntityManager({ entity }: { entity: string }) {
   const [rows, setRows] = useState<Row[]>([]);
@@ -137,10 +25,14 @@ export function EntityManager({ entity }: { entity: string }) {
   const [editing, setEditing] = useState<Row | null>(null);
   const [form, setForm] = useState<Record<string, unknown>>({});
   const [display, setDisplay] = useState<'list' | 'form'>('list');
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const guard = useRef(createSubmissionGuard()).current;
 
   const fields = useMemo(() => ENTITY_FIELD_DEFS[entity] ?? [], [entity]);
   const label = ENTITY_LABELS[entity] ?? entity;
-  const apiKey = API_KEY[entity] ?? entity;
+  const apiKey = ENTITY_API_KEY[entity] ?? entity;
 
   const refresh = useCallback(() => {
     setLoadError(null);
@@ -150,7 +42,13 @@ export function EntityManager({ entity }: { entity: string }) {
     manager
       .list()
       .then((data) => setRows(data))
-      .catch(() => setLoadError(`Could not load ${label.toLowerCase()}. Is the API running?`));
+      .catch((error) =>
+        setLoadError(
+          describeApiError(error, {
+            notFound: `${label} could not be loaded because the server has no matching configuration.`,
+          }),
+        ),
+      );
   }, [apiKey, label]);
 
   useEffect(() => {
@@ -159,20 +57,24 @@ export function EntityManager({ entity }: { entity: string }) {
 
   function startCreate() {
     setEditing(null);
-    setForm({});
+    setForm(blankEntityForm(fields));
+    setSaveError(null);
+    setNotice(null);
     setDisplay('form');
   }
 
   function startEdit(row: Row) {
     setEditing(row);
     setForm(flattenRecord(row));
+    setSaveError(null);
+    setNotice(null);
     setDisplay('form');
   }
 
   function flattenRecord(row: Row): Record<string, unknown> {
     const out: Record<string, unknown> = {};
     for (const field of fields) {
-      out[field.name] = row[field.name] ?? '';
+      out[field.name] = row[field.name] ?? field.defaultValue ?? '';
     }
     return out;
   }
@@ -186,15 +88,30 @@ export function EntityManager({ entity }: { entity: string }) {
       create: (payload: unknown) => Promise<Row>;
       update: (id: string, payload: unknown) => Promise<Row>;
     };
-    const payload = normalizePayload(form, fields);
-    try {
-      if (editing) await manager.update(editing.id, payload);
-      else await manager.create(payload);
-      setDisplay('list');
-      refresh();
-    } catch {
-      setLoadError('Save failed. Check the values and try again.');
-    }
+    const payload = normalizeEntityPayload(form, fields);
+    const current = editing;
+
+    // The guard makes a second click a no-op while the first request is in
+    // flight, so one submission can never produce two records.
+    await guard.run(async () => {
+      setSaving(true);
+      setSaveError(null);
+      setNotice(null);
+      try {
+        const record = current ? await manager.update(current.id, payload) : await manager.create(payload);
+        setRows((prev) =>
+          current ? prev.map((row) => (row.id === record.id ? record : row)) : [record, ...prev],
+        );
+        setEditing(null);
+        setDisplay('list');
+        setNotice(`${label} ${current ? 'updated' : 'created'}.`);
+      } catch (error) {
+        // Keep the form (and the user's input) exactly as it was.
+        setSaveError(describeApiError(error));
+      } finally {
+        setSaving(false);
+      }
+    });
   }
 
   async function remove(row: Row) {
@@ -204,9 +121,10 @@ export function EntityManager({ entity }: { entity: string }) {
     if (!window.confirm(`Delete this ${label.toLowerCase()}?`)) return;
     try {
       await manager.remove(row.id);
-      refresh();
-    } catch {
-      setLoadError('Delete failed.');
+      setRows((prev) => prev.filter((item) => item.id !== row.id));
+      setNotice(`${label} deleted.`);
+    } catch (error) {
+      setLoadError(describeApiError(error));
     }
   }
 
@@ -233,12 +151,21 @@ export function EntityManager({ entity }: { entity: string }) {
   if (display === 'form') {
     return (
       <div className="max-w-2xl">
-        <button onClick={() => setDisplay('list')} className="mb-6 text-sm text-ink/50 hover:text-ink">
+        <button
+          onClick={() => setDisplay('list')}
+          disabled={saving}
+          className="mb-6 text-sm text-ink/50 hover:text-ink disabled:opacity-50"
+        >
           ← Back
         </button>
         <h1 className="font-display text-2xl font-semibold">
           {editing ? `Edit ${label.toLowerCase()}` : `New ${label.toLowerCase()}`}
         </h1>
+        {saveError && (
+          <p role="alert" className="mt-6 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">
+            {saveError}
+          </p>
+        )}
         <Card className="mt-6 space-y-5 p-8">
           {fields.map((field) => (
             <div key={field.name} className="space-y-2">
@@ -261,6 +188,19 @@ export function EntityManager({ entity }: { entity: string }) {
                   onChange={(e) => updateField(field.name, e.target.checked)}
                   className="h-5 w-5"
                 />
+              ) : field.type === 'select' ? (
+                <Select
+                  id={field.name}
+                  value={String(form[field.name] ?? '')}
+                  onChange={(e) => updateField(field.name, e.target.value)}
+                >
+                  {field.defaultValue === undefined && <option value="">Not set</option>}
+                  {field.options?.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </Select>
               ) : (
                 <Input
                   id={field.name}
@@ -272,11 +212,15 @@ export function EntityManager({ entity }: { entity: string }) {
             </div>
           ))}
           <div className="flex items-center gap-4 pt-2">
-            <Button onClick={save}>
+            <Button onClick={save} loading={saving} disabled={saving}>
               <Save className="mr-2 h-4 w-4" />
-              Save
+              {saving ? 'Saving…' : 'Save'}
             </Button>
-            <button onClick={() => setDisplay('list')} className="text-sm text-ink/50 hover:text-ink">
+            <button
+              onClick={() => setDisplay('list')}
+              disabled={saving}
+              className="text-sm text-ink/50 hover:text-ink disabled:opacity-50"
+            >
               Cancel
             </button>
           </div>
@@ -295,7 +239,16 @@ export function EntityManager({ entity }: { entity: string }) {
         </Button>
       </div>
 
-      {loadError && <p className="mt-6 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">{loadError}</p>}
+      {notice && (
+        <p role="status" className="mt-6 rounded-xl bg-green-50 px-4 py-3 text-sm text-green-700">
+          {notice}
+        </p>
+      )}
+      {loadError && (
+        <p role="alert" className="mt-6 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">
+          {loadError}
+        </p>
+      )}
 
       <div className="mt-8 space-y-3">
         {rows.length === 0 && !loadError && <p className="text-sm text-ink/50">Nothing here yet — add your first item.</p>}
@@ -330,21 +283,4 @@ export function EntityManager({ entity }: { entity: string }) {
       </div>
     </div>
   );
-}
-
-function normalizePayload(form: Record<string, unknown>, fields: EntityFieldDef[]): Record<string, unknown> {
-  const out: Record<string, unknown> = {};
-  for (const field of fields) {
-    const raw = form[field.name];
-    if (field.type === 'date') {
-      out[field.name] = raw ? new Date(String(raw)).toISOString() : null;
-    } else if (field.type === 'number') {
-      out[field.name] = raw === '' || raw === null ? null : Number(raw);
-    } else if (field.type === 'boolean') {
-      out[field.name] = Boolean(raw);
-    } else {
-      out[field.name] = raw === '' ? null : String(raw);
-    }
-  }
-  return out;
 }

@@ -74,11 +74,15 @@ are hard gates, so keep `pnpm lint` green locally before pushing.
   and `nest build`.** After editing validators, run
   `pnpm --filter @portfolio/validation build` or restart the API, or the running
   process keeps the stale schema.
-- **`pnpm test` only covers `@portfolio/api` and `@portfolio/utils`.** `web` and
-  `admin` have no test runner; verify them by running the dev server and
-  exercising routes.
-- **Vitest path aliases** are declared in `apps/api/vitest.config.ts`; add new
-  workspace aliases there when tests import a new package.
+- **`pnpm test` covers `@portfolio/api`, `@portfolio/utils` and `@portfolio/admin`.**
+  `web` has no test runner; verify it by running the dev server and exercising
+  routes. `admin` tests run in jsdom via Testing Library (`apps/admin/vitest.config.ts`).
+- **Vitest path aliases** are declared per workspace (`apps/api/vitest.config.ts`,
+  `apps/admin/vitest.config.ts`); add new workspace aliases there when tests
+  import a new package.
+- **The admin Vitest config must set `esbuild: { jsx: 'automatic' }`.** The app's
+  tsconfig uses `jsx: "preserve"` for Next.js, which esbuild cannot transform, so
+  component tests fail to parse without it.
 - **Email adapters are provider-neutral.** `EMAIL_PROVIDER=smtp` + `SMTP_HOST`
   points at Mailpit locally (`localhost:1025`) and at a real mail server in
   production. `console` is the default and never claims delivery.

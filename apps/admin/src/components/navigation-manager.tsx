@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
+import { describeApiError } from '@portfolio/utils';
 import { Button, Card, Input, Label } from '@portfolio/ui';
 import { Plus, Save, Trash2, GripVertical } from 'lucide-react';
 import type { NavItem } from '@portfolio/types';
@@ -35,7 +36,7 @@ export function NavigationManager() {
             })),
         ),
       )
-      .catch(() => setError('Could not load navigation. Is the API running?'))
+      .catch((error) => setError(describeApiError(error)))
       .finally(() => setLoaded(true));
   }, []);
 
@@ -74,8 +75,12 @@ export function NavigationManager() {
           .map((item, index) => ({ ...item, order: index })),
       );
       setMessage('Navigation saved. The public site updates on the next request.');
-    } catch {
-      setError('Save failed. Every item needs a label and an href.');
+    } catch (error) {
+      setError(
+        describeApiError(error, {
+          badRequest: 'Save failed. Every item needs a label and an href.',
+        }),
+      );
     } finally {
       setSaving(false);
     }

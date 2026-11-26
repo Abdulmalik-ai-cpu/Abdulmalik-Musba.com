@@ -35,7 +35,12 @@ import type {
  */
 
 export interface ApiErrorShape {
-  statusCode: number;
+  /**
+   * Omitted by object-bodied Nest exceptions (`BadRequestException({...})`),
+   * which Nest returns verbatim — e.g. the 400 from `ZodValidationPipe`.
+   * Callers must fall back to the HTTP response status.
+   */
+  statusCode?: number;
   code: string;
   message: string;
   requestId?: string;
@@ -138,7 +143,14 @@ export class ApiClient {
           message: `Request failed with status ${response.status}`,
         };
       }
-      throw new ApiError(error.statusCode, error.code, error.message, error.details);
+      // Object-bodied exceptions (validation errors) carry no `statusCode`, so
+      // fall back to the HTTP status to keep `ApiError.statusCode` always set.
+      throw new ApiError(
+        error.statusCode ?? response.status,
+        error.code,
+        error.message,
+        error.details,
+      );
     }
 
     if (response.status === 204) return undefined as T;

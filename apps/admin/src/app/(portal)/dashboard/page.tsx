@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
 import { api } from '@/lib/api';
+import { describeApiError } from '@portfolio/utils';
 import { Card } from '@portfolio/ui';
 import type { DashboardStats } from '@portfolio/types';
 
@@ -22,7 +23,7 @@ export default function DashboardPage() {
     api.admin
       .dashboard()
       .then(setStats)
-      .catch(() => setError('Unable to load dashboard stats. Is the API running?'));
+      .catch((error) => setError(describeApiError(error)));
   }, [loading, user, router]);
 
   if (loading || !user) {

@@ -78,3 +78,25 @@ export function safeJsonParse<T>(value: string, fallback: T): T {
 }
 
 export { renderSafeMarkdown } from './markdown';
+export {
+  normalizeEntityPayload,
+  blankEntityForm,
+  createSubmissionGuard,
+  type EntityFieldKind,
+  type EntityFieldLike,
+  type EntityFieldDefault,
+  type SubmissionGuard,
+} from './entity-payload';
+export { describeApiError, isNetworkError, type ApiErrorOptions } from './api-errors';
+export {
+  PUBLICATION_TYPES,
+  PUBLICATION_TYPE_LABELS,
+  PUBLICATION_TYPE_OPTIONS,
+  type PublicationTypeValue,
+} from './publication-types';
+export {
+  ENTITY_FIELD_DEFS,
+  ENTITY_LABELS,
+  ENTITY_API_KEY,
+  type EntityFieldDef,
+} from './entity-fields';
